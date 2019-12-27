@@ -1,11 +1,16 @@
+package old;
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import javax.imageio.ImageIO;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.Timer;
@@ -13,14 +18,22 @@ import javax.swing.Timer;
 public class UI extends JPanel implements ActionListener{
 	
 	// Window
-	public static final int VERTICAL_MAIN_BORDER = 620;
+	public static final int MAIN_VERTICAL_BORDER = 620;
 	public static final int HEALTH_VERTICAL_BORDER = 1200;
-	public static final int VERTICAL_FOCUS_BORDER = 1270;
+	public static final int FOCUS_VERTICAL_BORDER = 1270;
 	public static final int INFO_HORIZONTAL_BORDER = 840;
 	public static final int INFO_MID_BORDER = 960;
 	public static final int BORDER_WIDTH = 10;
 	public static final int HORIZONTAL_CHAT_BORDER = 420;
 	public static final int FOCUS_BORDER = 170;
+	public static final int SELECT_BOX_OFFSET = 175;
+	public static final int SELECT_BOX_V_OFFSET = 100;
+	
+	public static final int ICON_GAP = 50;
+	public static final int ICON_V_GAP = 50;
+	public static final int ICON_WIDTH = 100;
+	public static final int ICON_HEIGHT = 140;
+	public static final int ICON_TEXT = 20;
 	
 	public static final Color DARK_BLUE = new Color(50,150,255);
 	public static final Color LIGHT_BLUE = new Color(70,170,255);
@@ -66,7 +79,7 @@ public class UI extends JPanel implements ActionListener{
 	public static final Color SERVER_COLOR = new Color(0,0,0);
 	public static final int CHAT_OFFSET = 10;
 	public static final int CHAT_V_OFFSET = 10;
-	public static final int MESSAGE_GAP = 15;
+	public static final int MESSAGE_GAP = 25;
 	
 	// Focus Menu
 	public static final int SELECT_OFFSET = 20;
@@ -94,6 +107,21 @@ public class UI extends JPanel implements ActionListener{
 	public static final int PLUS_V_OFFSET = 20;
 	public static final int PLUS_LENGTH = 60;
 	
+	public static final int UPLOAD_BOX_OFFSET = MAIN_VERTICAL_BORDER + 20;
+	public static final int UPLOAD_BOX_V_OFFSET = FOCUS_BORDER;
+	public static final int UPLOAD_BOX_LENGTH = FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 40;
+	public static final int UPLOAD_BOX_HEIGHT = 180;
+	public static final int UPLOAD_FIELD_HEIGHT = 40;
+	public static final int UPLOAD_FILE_V_OFFSET =  FOCUS_BORDER + 25;
+	public static final int UPLOAD_NAME_V_OFFSET =  FOCUS_BORDER + 70;
+	public static final int UPLOAD_TEXT_OFFSET =  FOCUS_BORDER + 115;
+	public static final int UPLOAD_FIELD_OFFSET = 50;
+	public static final int UPLOAD_BUTTON_BORDER = 400;
+	
+	public static final int RIGHTCLICK_WIDTH = 270;
+	public static final int RIGHTCLICK_HEIGHT = 120;
+	
+	
 	public static final String FONT = "BT BARNUM";
 	
 	JTextField nameField;
@@ -106,21 +134,60 @@ public class UI extends JPanel implements ActionListener{
 	int zoomScale;
 	int picX, picY;
 	
+	boolean pen;
+	boolean listenerCreated;
+	
 	public void makeClient(String ip){
 
 		Client c = new Client(ip, 25569, getPlayerName(), this);
-		new Listener(this,this,c);
+		if (!listenerCreated){
+			new Listener(this,this,c);
+			chatField.addActionListener(new ChatListener("CHT ", c));
+			listenerCreated = true;
+			validate();
+		}
+		else{
+			Listener.setClient(c);
+			chatField.removeAll();
+			chatField.addActionListener(new ChatListener("CHT ", c));
+			validate();
+		}
+	}
+	
+	private boolean canRoll(){
+		Die[] dice = data.getDice();
+		for (int i = 0; i < dice.length; i++){
+			if (dice[i].isVisible()){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public Data getData(){
+		return data;
+	}
+	
+	public void finishMakeClient(){
 		settingName = false;
-		chatField.addActionListener(new ChatListener("CHT ", c));
+
+		nameField.setVisible(false);
+		chatField.setVisible(true);
+		uploadField.setVisible(false);
+		nameUploadField.setVisible(false);
+		nameUploadField.setText("Name");
+		uploadField.setText("File Path");
 	}
 	
 	public UI(int width, int height, String ip){
 		t = new Timer(1000/20, (ActionListener) this);
+		pen = true;
 		zoomScale = 1;
 		picX = 0;
 		picY = 0;
 		setLayout(null);
 		settingName = true;
+		color = Color.black;
 		
 		nameField = new JTextField();
 		chatField = new JTextField();
@@ -132,10 +199,18 @@ public class UI extends JPanel implements ActionListener{
 		nameField.setHorizontalAlignment(JTextField.CENTER);
 		nameField.addActionListener(new NameActionListener(this,name,ip));
 		
-		chatField.setBounds(BORDER_WIDTH + BORDER_WIDTH, height - BORDER_WIDTH - CHAT_HEIGHT, VERTICAL_MAIN_BORDER - 4 * BORDER_WIDTH, CHAT_HEIGHT);
+		chatField.setBounds(BORDER_WIDTH + BORDER_WIDTH, height - BORDER_WIDTH - CHAT_HEIGHT, MAIN_VERTICAL_BORDER - 4 * BORDER_WIDTH, CHAT_HEIGHT);
 		chatField.setFont(new Font(FONT, Font.PLAIN, 30));
 		chatField.setBackground(new Color(90,190,255));
 		chatField.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+		
+		uploadField.setFont(new Font(FONT, Font.PLAIN, 35));
+		uploadField.setBackground(new Color(90,190,255));
+		uploadField.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+		
+		nameUploadField.setFont(new Font(FONT, Font.PLAIN, 35));
+		nameUploadField.setBackground(new Color(90,190,255));
+		nameUploadField.setBorder(javax.swing.BorderFactory.createEmptyBorder());
 		
 		add(nameField);
 		add(chatField);
@@ -160,10 +235,21 @@ public class UI extends JPanel implements ActionListener{
 	private boolean choosingFocus;
 	private boolean settingName; //Only a text field while the user sets up username.
 	private Data data;
+	private boolean error;
+	
+	private boolean rightClick;
+	private int rightClickX;
+	private int rightClickY;
+	private Color color;
+	private int bx, by;
 	
 	public void setData(Data data){
 		this.data = data;
-		System.out.println(data.getTotal());
+	}
+	
+	public void setDraw(int bx, int by){
+		this.bx = bx;
+		this.by = by;
 	}
 	
 	public void createTextBox(int x, int y, int width, int height, ActionListener e){
@@ -172,7 +258,7 @@ public class UI extends JPanel implements ActionListener{
 		field.setForeground(Color.black);
 		field.setFont(new Font(FONT, Font.PLAIN, height));
 		field.setHorizontalAlignment(JTextField.CENTER);
-		if (x < VERTICAL_MAIN_BORDER){
+		if (x < MAIN_VERTICAL_BORDER){
 			field.setBackground(Color.white);
 		}
 		else{
@@ -191,19 +277,205 @@ public class UI extends JPanel implements ActionListener{
 	
 	public void changeX(int x){
 		if (file == null) return;
-		picX = Math.min(Math.max(x + picX, 0), file.getImage().getWidth(null));
+		picX = Math.min(Math.max(x + picX * (int)(16 / Math.pow(2,zoomScale)), 0), file.getImage().getWidth(null));
 	}
 	
 	public void changeY(int y){
 		if (file == null) return;
-		picY = Math.min(Math.max(y + picY, 0), file.getImage().getHeight(null));
+		picY = Math.min(Math.max(y + picY * (int)(16 / Math.pow(2,zoomScale)), 0), file.getImage().getHeight(null));
 	}
 	
 	public void zoom(int z){
-		zoomScale = Math.min(Math.max(zoomScale + z, -4), 4);
+		zoomScale = Math.min(Math.max(zoomScale + z, 0), 4);
+	}
+	
+	public void draw(Client c, int x, int y){
+		if (choosing){
+			return;
+		}
+		if (x < UI.FOCUS_VERTICAL_BORDER - UI.BORDER_WIDTH && y < UI.INFO_HORIZONTAL_BORDER - BORDER_WIDTH) {
+			x -= UI.MAIN_VERTICAL_BORDER + UI.BORDER_WIDTH;
+			bx -= UI.MAIN_VERTICAL_BORDER + UI.BORDER_WIDTH;
+			y -= UI.FOCUS_BORDER + UI.BORDER_WIDTH;
+			by -= UI.FOCUS_BORDER + UI.BORDER_WIDTH;
+			int zoom = (int) (Math.pow(2, data.getZoomScale()));
+			int colorCode = 0;
+
+			if (color == null || !pen) {
+				colorCode = 9;
+			} else {
+
+				if (color.equals(Color.black)) {
+					colorCode = 0;
+				}
+				if (color.equals(Color.red)) {
+					colorCode = 1;
+				}
+				if (color.equals(Color.blue)) {
+					colorCode = 2;
+				}
+				if (color.equals(Color.yellow)) {
+					colorCode = 3;
+				}
+				if (color.equals(Color.gray)) {
+					colorCode = 4;
+				}
+				if (color.equals(Color.white)) {
+					colorCode = 5;
+				}
+				if (color.equals(Color.green)) {
+					colorCode = 6;
+				}
+				if (color.equals(new Color(255, 125, 0))) {
+					colorCode = 7;
+				}
+				if (color.equals(new Color(255, 0, 255))) {
+					colorCode = 8;
+				}
+			}
+
+			c.sendString("DRW " + (x / zoom + data.getPicX()) + " " + (y / zoom + data.getPicY()) + " " + (bx / zoom + data.getPicX()) + " " + (by / zoom + data.getPicY()) + " " + colorCode);
+			bx = x + UI.MAIN_VERTICAL_BORDER + UI.BORDER_WIDTH;
+			by = y + UI.FOCUS_BORDER + UI.BORDER_WIDTH;
+		}
+	}
+	
+	public void sendRightClick(Client c, int x, int y){
+		if (x > MAIN_VERTICAL_BORDER + BORDER_WIDTH && x < FOCUS_VERTICAL_BORDER - BORDER_WIDTH){
+			if (y > FOCUS_BORDER && y < INFO_HORIZONTAL_BORDER - BORDER_WIDTH){
+				rightClick = true;
+				rightClickX = x;
+				rightClickY = y;
+			}
+		}
 	}
 	
 	public void sendClick(Client c, int x, int y){
+		int xOff = 0;
+		int yOff = 0;
+		if (rightClick){
+			if (x > rightClickX && x < rightClickX + RIGHTCLICK_WIDTH && y > rightClickY && y < rightClickY + RIGHTCLICK_HEIGHT){
+				x -= rightClickX + BORDER_WIDTH;
+				y -= rightClickY + BORDER_WIDTH;
+				
+				if (x < 0 || y < 0) return;
+				
+				int scale = (RIGHTCLICK_HEIGHT - 2*BORDER_WIDTH) / 2;
+				
+				int xIndex = x / scale;
+				int yIndex = y / scale;
+				
+				if (xIndex == RIGHTCLICK_WIDTH / scale) return;
+				if (yIndex == RIGHTCLICK_HEIGHT / scale) return;
+				System.out.println(xIndex + " " + yIndex);
+				
+				if (yIndex == 0){
+					if (xIndex == 1){
+						color = Color.black;
+					}
+					if (xIndex == 2){
+						color = Color.red;
+					}
+					if (xIndex == 3){
+						color = Color.blue;
+					}
+					if (xIndex == 4){
+						color = Color.yellow;
+					}
+				}
+				if (yIndex == 1){
+					if (xIndex == 0){
+						color = Color.gray;
+					}
+					if (xIndex == 1){
+						color = Color.white;
+					}
+					if (xIndex == 2){
+						color = Color.green;
+					}
+					if (xIndex == 3){
+						color = new Color(255,125,0);
+					}
+					if (xIndex == 4){
+						color = new Color(255,0,255);
+					}
+				}
+				
+				rightClick = false;
+				return;
+			}
+		}
+		if (uploading){
+			int tempX = x;
+			tempX = x + MAIN_VERTICAL_BORDER - FOCUS_VERTICAL_BORDER;
+			if (tempX > UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + UPLOAD_BUTTON_BORDER  + 10 && tempX < UPLOAD_BOX_LENGTH - UPLOAD_FIELD_OFFSET + UPLOAD_BOX_OFFSET){
+				if (y > UPLOAD_TEXT_OFFSET && y < UPLOAD_TEXT_OFFSET + UPLOAD_FIELD_HEIGHT){
+					String uploadName = nameUploadField.getText();
+					if (uploadName.length() == 0 || uploadName.length() > 15){
+						error = true;
+						return;
+					}
+					String fileLocation = uploadField.getText();
+					if (fileLocation.charAt(0) == '"'){
+						fileLocation = fileLocation.substring(1, fileLocation.length() - 1);
+					}
+					if (!fileLocation.substring(fileLocation.length() - 4).equals(".png") && !fileLocation.substring(fileLocation.length() - 4).equals(".jpg")){
+						error = true;
+						return;
+					}
+					try{
+						BufferedImage image = ImageIO.read(new File(fileLocation));
+						c.sendPic(new Picture(uploadName, image));
+					}catch(Exception e){
+						error = true;
+						return;
+					}
+				}
+			}
+		}
+		if (choosing){
+			if (x <  SELECT_BOX_OFFSET){
+				chatField.setVisible(true);
+				choosing = false;
+				return;
+			}
+			if (x > getWidth() - SELECT_BOX_OFFSET){
+				chatField.setVisible(true);
+				choosing = false;
+				return;
+			}
+			if (y <  SELECT_BOX_V_OFFSET){
+				chatField.setVisible(true);
+				choosing = false;
+				return;
+			}
+			if (y >  getHeight() - SELECT_BOX_V_OFFSET){
+				chatField.setVisible(true);
+				choosing = false;
+				return;
+			}
+			x -= SELECT_BOX_OFFSET + ICON_GAP - 20 + BORDER_WIDTH - 5;
+			y -= SELECT_BOX_V_OFFSET + ICON_V_GAP - 20 + BORDER_WIDTH - 10;
+			xOff += SELECT_BOX_OFFSET + ICON_GAP - 20 + BORDER_WIDTH - 5;
+			yOff += SELECT_BOX_V_OFFSET + ICON_V_GAP - 20 + BORDER_WIDTH - 10;
+			
+			int i = x / (ICON_GAP + ICON_WIDTH);
+			int j = y / (ICON_GAP + ICON_HEIGHT + ICON_TEXT);
+			
+			xOff += i * (ICON_GAP + ICON_WIDTH);
+			yOff += j * (ICON_GAP + ICON_HEIGHT + ICON_TEXT);
+			if (j*10 + i < data.getPictures().size()){
+				if (choosingFocus){
+					c.sendString("SEL " + (j*10 + i));
+				}
+				else{
+					file = data.getPictures().get(j*10 + i);
+				}
+				choosing = false;
+				chatField.setVisible(true);
+			}
+			return;
+		}
 		int startX = x;
 		int startY = y;
 		x -= BORDER_WIDTH;
@@ -211,10 +483,10 @@ public class UI extends JPanel implements ActionListener{
 		if (x < 0) return;
 		if (y < 0) return;
 		
-		int xOff = BORDER_WIDTH;
-		int yOff = BORDER_WIDTH;
+		xOff = BORDER_WIDTH;
+		yOff = BORDER_WIDTH;
 		
-		if (x < VERTICAL_MAIN_BORDER - BORDER_WIDTH){ // Left of main
+		if (x < MAIN_VERTICAL_BORDER - BORDER_WIDTH){ // Left of main
 			if (y < HORIZONTAL_CHAT_BORDER - BORDER_WIDTH){ // Focus on DICE
 				if (y < DIE_SIZE){ // 0-2
 					if (x < DIE_SIZE){ // 0
@@ -303,8 +575,8 @@ public class UI extends JPanel implements ActionListener{
 							}
 						}
 						else{
-							
-						}c.sendString("DIE 4 o");
+							c.sendString("DIE 4 o");
+						}
 						return;
 					}
 					else { // 5
@@ -332,7 +604,7 @@ public class UI extends JPanel implements ActionListener{
 				return;
 			}
 		}
-		if (x > VERTICAL_MAIN_BORDER + BORDER_WIDTH){ // Right of main
+		if (x > MAIN_VERTICAL_BORDER + BORDER_WIDTH){ // Right of main
 			if (y > INFO_HORIZONTAL_BORDER + BORDER_WIDTH){ //  bottom info bar.
 				if (x > HEALTH_VERTICAL_BORDER + BORDER_WIDTH){ // health bars
 					xOff += HEALTH_VERTICAL_BORDER;
@@ -344,6 +616,26 @@ public class UI extends JPanel implements ActionListener{
 					yOff += HEALTH_BAR_V_OFFSET;
 					y -= HEALTH_BAR_V_OFFSET;
 					
+					if (y - HEALTH_BAR_V_GAP / 2> -10 && y  - HEALTH_BAR_V_GAP / 2< 30){ // top
+						if (x - HEALTH_BAR_GAP / 2 > 0 && x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH - LEVEL_LENGTH){
+							//g.fillRect(xOff, yOff - 10, HEALTH_BAR_LENGTH - LEVEL_LENGTH, 33);
+						}
+						if (x - HEALTH_BAR_GAP / 2> HEALTH_BAR_LENGTH - LEVEL_LENGTH && x  - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH){
+							createTextBox(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH - LEVEL_LENGTH, yOff + HEALTH_BAR_V_GAP / 2 - 5, LEVEL_LENGTH - 5, 28, new TextListener("LVL 4 ",c));
+							return;
+						}
+					}
+					if (y - HEALTH_BAR_V_GAP / 2 > 30 && y - HEALTH_BAR_V_GAP / 2 < 65){
+						if (x - HEALTH_BAR_GAP / 2 > HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE && x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH / 2 - 10){
+							createTextBox(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + 5, yOff + HEALTH_BAR_V_GAP / 2 + 37, HEALTH_TEXT_SPACE - 10 - 5, 28 - 5, new TextListener("CHP 4 ",c));
+							return;
+						}
+						if (x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH / 2 + HEALTH_TEXT_SPACE && x - HEALTH_BAR_GAP / 2 > HEALTH_BAR_LENGTH / 2 + 10){
+							createTextBox(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH / 2 + HEALTH_TEXT_SPACE + 10 - HEALTH_TEXT_SPACE, yOff + HEALTH_BAR_V_GAP / 2 + 37, HEALTH_TEXT_SPACE - 10 - 5, 28 - 5, new TextListener("MHP 4 ",c));
+							return;
+						}
+					}
+					
 					int playerNum = 0;
 					if (y < (getHeight() - INFO_HORIZONTAL_BORDER) / 2){ // top
 						if (x < (getWidth() - HEALTH_VERTICAL_BORDER) / 2){ // top left
@@ -351,14 +643,14 @@ public class UI extends JPanel implements ActionListener{
 						else{ // top right
 							xOff += HEALTH_BAR_GAP;
 							x -= HEALTH_BAR_GAP;
-							playerNum = 1;
+							playerNum = 2;
 						}
 					}
 					else{ // bottom
 						if (x < (getWidth() - HEALTH_VERTICAL_BORDER) / 2){ // bottom left
 							yOff += HEALTH_BAR_V_GAP;
 							y -= HEALTH_BAR_V_GAP;
-							playerNum = 2;
+							playerNum = 1;
 						}
 						else{ // bottom right
 							xOff += HEALTH_BAR_GAP;
@@ -391,9 +683,9 @@ public class UI extends JPanel implements ActionListener{
 				if (x < HEALTH_VERTICAL_BORDER){ // left menus
 					if ( y > INFO_MID_BORDER){ // NON_Dice
 						
-						x -= VERTICAL_MAIN_BORDER;
+						x -= MAIN_VERTICAL_BORDER;
 						y -= INFO_MID_BORDER;
-						xOff += VERTICAL_MAIN_BORDER;
+						xOff += MAIN_VERTICAL_BORDER;
 						yOff += INFO_MID_BORDER;
 						
 						if (x > QUEST_OFFSET && x < QUEST_OFFSET + QUEST_LENGTH && y > QUEST_V_OFFSET && y < QUEST_V_OFFSET + INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - BORDER_WIDTH - QUEST_V_OFFSET){
@@ -409,28 +701,48 @@ public class UI extends JPanel implements ActionListener{
 						}
 					}
 					else{ // Dice
-						x -= VERTICAL_MAIN_BORDER;
+						x -= MAIN_VERTICAL_BORDER;
 						y -= INFO_HORIZONTAL_BORDER;
-						xOff += VERTICAL_MAIN_BORDER;
+						xOff += MAIN_VERTICAL_BORDER;
 						yOff += INFO_HORIZONTAL_BORDER;
 						
 						if (x > ROLL_OFFSET && x < ROLL_OFFSET + ROLL_LENGTH && y > ROLL_V_OFFSET && y < ROLL_V_OFFSET + INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - BORDER_WIDTH - ROLL_V_OFFSET){
-							c.sendString("ROL");
+							if (canRoll()){
+								c.sendString("ROL");
+							}
 						}
 					}
 					return;
 				}
 			}
-			if (y < FOCUS_BORDER){ //  top "quarter"
-				if (x > VERTICAL_FOCUS_BORDER){
-					x -= VERTICAL_FOCUS_BORDER;
-					xOff += VERTICAL_FOCUS_BORDER;
+			else if (y < FOCUS_BORDER){ //  top "quarter"
+				if (x > FOCUS_VERTICAL_BORDER){
+					x -= FOCUS_VERTICAL_BORDER;
+					xOff += FOCUS_VERTICAL_BORDER;
 					if (x > SELECT_OFFSET && x < SELECT_OFFSET + SELECT_LENGTH && y > SELECT_V_OFFSET && y < SELECT_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - 2 *SELECT_V_OFFSET){
 						choosing = true;
+						uploading = false;
+						nameUploadField.setVisible(false);
+						uploadField.setVisible(false);
 						choosingFocus = false;
+						chatField.setVisible(false);
 					}
 					if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > PLUS_V_OFFSET && y < PLUS_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - BORDER_WIDTH - 2 *PLUS_V_OFFSET){
-						uploading = true;
+						if (uploading){
+							uploading = false;
+							nameUploadField.setVisible(false);
+							uploadField.setVisible(false);
+							nameUploadField.setText("Name");
+							uploadField.setText("File Path");
+						}
+						else{
+							int tempX = FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER;
+							nameUploadField.setVisible(true);
+							uploadField.setVisible(true);
+							nameUploadField.setBounds(tempX + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5,UPLOAD_NAME_V_OFFSET + 5, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET - 10, UPLOAD_FIELD_HEIGHT - 10);
+							uploadField.setBounds(tempX  + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5,UPLOAD_FILE_V_OFFSET + 5, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET - 10, UPLOAD_FIELD_HEIGHT - 10);
+							uploading = true;
+						}
 					}
 					if (x > ZOOMIN_OFFSET && x < ZOOMIN_OFFSET + ZOOMIN_LENGTH && y > ZOOMIN_V_OFFSET && y < ZOOMIN_V_OFFSET + 60){
 						zoom(1);
@@ -452,14 +764,23 @@ public class UI extends JPanel implements ActionListener{
 					}
 				}
 				else{
-					x -= VERTICAL_MAIN_BORDER;
-					xOff += VERTICAL_MAIN_BORDER;
+					x -= MAIN_VERTICAL_BORDER;
+					xOff += MAIN_VERTICAL_BORDER;
 					if (x > SELECT_OFFSET && x < SELECT_OFFSET + SELECT_LENGTH && y > SELECT_V_OFFSET && y < SELECT_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - 2 *SELECT_V_OFFSET){
 						choosing = true;
-						choosingFocus = false;
+						uploading = false;
+						nameUploadField.setVisible(false);
+						uploadField.setVisible(false);
+						choosingFocus = true;
+						chatField.setVisible(false);
 					}
 					if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > PLUS_V_OFFSET && y < PLUS_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - BORDER_WIDTH - 2 *PLUS_V_OFFSET){
-						uploading = true;
+						if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > ZOOMOUT_V_OFFSET && y < ZOOMOUT_V_OFFSET + ZOOMOUT_LENGTH){
+							pen = !pen;
+						}
+						else{
+							c.sendString("CLR");
+						}
 					}
 					if (x > ZOOMIN_OFFSET && x < ZOOMIN_OFFSET + ZOOMIN_LENGTH && y > ZOOMIN_V_OFFSET && y < ZOOMIN_V_OFFSET + 60){
 						c.sendString("ZOO 1");
@@ -504,18 +825,182 @@ public class UI extends JPanel implements ActionListener{
 			else if (uploading){
 				drawUploading(g);
 			}
-			else {
+			else if (rightClick){
+				drawColorChart(g);
+			}
+			drawHighlighted(Listener.x, Listener.y, g);
+			if (Listener.mouseButtons[0]) {
 				drawHighlighted(Listener.x, Listener.y, g);
-				if (Listener.mouseButtons[0]) {
-					drawHighlighted(Listener.x, Listener.y, g);
-				}
 			}
 		}
 		
 	}
 	
+	public void drawColorChart(Graphics g){
+		int green = 40;
+		int blue = 80;
+		for (int i = 0; i < 11; i++){
+			g.setColor(new Color(0,green,blue));
+			g.drawRect(rightClickX + i, rightClickY + i, RIGHTCLICK_WIDTH - 2*i, RIGHTCLICK_HEIGHT -  2*i);
+			green += 5;
+			blue += 10;
+		}
+		
+		int x = rightClickX + BORDER_WIDTH;
+		int y = rightClickY + BORDER_WIDTH;
+		int scale = (RIGHTCLICK_HEIGHT - 2*BORDER_WIDTH)/2;
+		g.setColor(Color.lightGray);
+		g.fillRect(x, y, scale, scale);
+		g.setColor(Color.black);
+		Font f = new Font(FONT, Font.PLAIN, scale);
+		g.setFont(f);
+		int center = centerString(scale,f,"x",g);
+		g.drawString("x", x + center, y + scale - 10);
+		x += scale;
+		g.setColor(Color.black);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(Color.red);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(Color.blue);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(Color.yellow);
+		g.fillRect(x, y, scale, scale);
+		x = rightClickX + BORDER_WIDTH;
+		y += scale;
+		g.setColor(Color.gray);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(Color.white);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(Color.green);
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(new Color(255,125,0));
+		g.fillRect(x, y, scale, scale);
+		x += scale;
+		g.setColor(new Color(255,0,255));
+		g.fillRect(x, y, scale, scale);
+	}
+	
+	public void drawUploading(Graphics g){
+		
+		int x = 0;
+		x = FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER;
+		
+		int green = 128 - 41;
+		int blue = 255 - 82;
+		g.setColor(new Color(0,green,blue));
+		g.fillRect(x + UPLOAD_BOX_OFFSET, UPLOAD_BOX_V_OFFSET, UPLOAD_BOX_LENGTH, UPLOAD_BOX_HEIGHT);
+		for (int i = 0; i < 40; i++){
+			green += 1;
+			blue += 2;
+			g.setColor(new Color(0,green,blue));
+			g.fillOval(x + UPLOAD_BOX_OFFSET + BORDER_WIDTH + i*16, UPLOAD_BOX_V_OFFSET + BORDER_WIDTH + i*9,UPLOAD_BOX_LENGTH -i*32 - 2*BORDER_WIDTH, UPLOAD_BOX_HEIGHT -i*18 - 2*BORDER_WIDTH);
+		}
+		green = 40;
+		blue = 80;
+		for (int i = 0; i < 11; i++){
+			g.setColor(new Color(0,green,blue));
+			g.drawRect(x + UPLOAD_BOX_OFFSET + i, UPLOAD_BOX_V_OFFSET + i, UPLOAD_BOX_LENGTH - 2*i, UPLOAD_BOX_HEIGHT -  2*i);
+			g.drawRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + i, UPLOAD_NAME_V_OFFSET + i, UPLOAD_BOX_LENGTH - 2*i - 2 * UPLOAD_FIELD_OFFSET, UPLOAD_FIELD_HEIGHT -  2*i);
+			g.drawRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + i, UPLOAD_FILE_V_OFFSET + i, UPLOAD_BOX_LENGTH - 2*i - 2 * UPLOAD_FIELD_OFFSET, UPLOAD_FIELD_HEIGHT -  2*i);
+			green += 5;
+			blue += 10;
+		}
+		g.setColor(DARK_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET, UPLOAD_NAME_V_OFFSET, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET, UPLOAD_FIELD_HEIGHT);
+		g.setColor(LIGHT_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5, UPLOAD_NAME_V_OFFSET + 5, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET - 10, UPLOAD_FIELD_HEIGHT - 10);
+		
+		g.setColor(DARK_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET, UPLOAD_FILE_V_OFFSET, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET, UPLOAD_FIELD_HEIGHT);
+		g.setColor(LIGHT_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5, UPLOAD_FILE_V_OFFSET + 5, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET - 10, UPLOAD_FIELD_HEIGHT - 10);
+		
+		g.setColor(DARK_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET, UPLOAD_TEXT_OFFSET, UPLOAD_BUTTON_BORDER - 10, UPLOAD_FIELD_HEIGHT);
+		g.setColor(LIGHT_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5, UPLOAD_TEXT_OFFSET + 5, UPLOAD_BUTTON_BORDER - 20, UPLOAD_FIELD_HEIGHT - 10);
+		
+		g.setColor(DARK_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + UPLOAD_BUTTON_BORDER + 10, UPLOAD_TEXT_OFFSET, UPLOAD_BOX_LENGTH - UPLOAD_BUTTON_BORDER - 2 * UPLOAD_FIELD_OFFSET - 10, UPLOAD_FIELD_HEIGHT);
+		g.setColor(LIGHT_BLUE);
+		g.fillRect(x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + UPLOAD_BUTTON_BORDER + 15, UPLOAD_TEXT_OFFSET + 5,  UPLOAD_BOX_LENGTH - UPLOAD_BUTTON_BORDER - 2 * UPLOAD_FIELD_OFFSET - 20, UPLOAD_FIELD_HEIGHT - 10);
+		
+		String s = "";
+		if (error){
+			s += "Error: ";
+		}
+		s += "Choose File and Name";
+		
+		g.setColor(Color.black);
+		Font f = new Font(FONT, Font.PLAIN, UPLOAD_FIELD_HEIGHT - 15);
+		g.setFont(f);
+		int center = centerString(UPLOAD_BUTTON_BORDER - 10, f, s, g);
+		g.drawString(s,center + x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 5, UPLOAD_TEXT_OFFSET + UPLOAD_FIELD_HEIGHT - 10);
+		
+		s = "Upload";
+		g.setColor(Color.black);
+		f = new Font(FONT, Font.PLAIN, UPLOAD_FIELD_HEIGHT - 15);
+		g.setFont(f);
+		center = centerString(UPLOAD_BOX_LENGTH - UPLOAD_BUTTON_BORDER - 2 * UPLOAD_FIELD_OFFSET - 20, f, s, g);
+		g.drawString(s,center + x + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + UPLOAD_BUTTON_BORDER + 15, UPLOAD_TEXT_OFFSET + UPLOAD_FIELD_HEIGHT - 10);
+		
+	}
+	
+	public void drawChoosing(Graphics g){
+		Color c = new Color(0,0,0,200);
+		g.setColor(c);
+		g.fillRect(0, 0, getWidth(), getHeight());
+		
+		int green = 128 - 41;
+		int blue = 255 - 82;
+		g.setColor(new Color(0,green,blue));
+		g.fillRect(SELECT_BOX_OFFSET, SELECT_BOX_V_OFFSET, getWidth() - 2 * SELECT_BOX_OFFSET, getHeight() - 2 * SELECT_BOX_V_OFFSET);
+		for (int i = 0; i < 40; i++){
+			green += 1;
+			blue += 2;
+			g.setColor(new Color(0,green,blue));
+			g.fillOval(SELECT_BOX_OFFSET + BORDER_WIDTH + i*16, SELECT_BOX_V_OFFSET + BORDER_WIDTH + i*9,getWidth()-i*32 - 2*BORDER_WIDTH - 2 * SELECT_BOX_OFFSET, getHeight()-i*18 - 2*BORDER_WIDTH - 2 * SELECT_BOX_V_OFFSET);
+		}
+		green = 40;
+		blue = 80;
+		for (int i = 0; i < 11; i++){
+			g.setColor(new Color(0,green,blue));
+			g.drawRect(SELECT_BOX_OFFSET + i, SELECT_BOX_V_OFFSET + i, getWidth() - 2 * SELECT_BOX_OFFSET - 2*i, getHeight() - 2 * SELECT_BOX_V_OFFSET -  2*i);
+			green += 5;
+			blue += 10;
+		}
+		
+		int x = SELECT_BOX_OFFSET + BORDER_WIDTH;
+		int y = SELECT_BOX_V_OFFSET + BORDER_WIDTH;
+		
+		for (int j = 0; j < 4; j++) {
+			for (int i = 0; i < 10; i++) {
+				if (j * 10 + i < data.getPictures().size()){
+					g.setColor(DARK_BLUE);
+					g.fillRect(x + ICON_GAP + i * (ICON_GAP + ICON_WIDTH) - 20, y  - 20 + ICON_V_GAP + j * (ICON_V_GAP + ICON_HEIGHT + ICON_TEXT), ICON_WIDTH + 40, ICON_TEXT + 10);
+					g.setColor(LIGHT_BLUE);
+					g.fillRect(x + ICON_GAP + i * (ICON_GAP + ICON_WIDTH) + 5 - 20, y - 20 + ICON_GAP + j * (ICON_GAP + ICON_HEIGHT) + 5, ICON_WIDTH - 10 + 40, ICON_TEXT);
+					
+					g.setColor(Color.black);
+					Font f = new Font(FONT, Font.PLAIN, ICON_TEXT);
+					g.setFont(f);
+					String s = data.getPictures().get(j*10 + i).getName();
+					int center = centerString(ICON_WIDTH + 30, f, s, g);
+					g.drawString(s,x + ICON_GAP + i * (ICON_GAP + ICON_WIDTH) + 5 - 20 + center, y - 20 + ICON_GAP + j * (ICON_GAP + ICON_HEIGHT) + 5 + ICON_TEXT - 2);
+					g.drawImage(data.getPictures().get(j*10 + i).getImage(),x + ICON_GAP + i * (ICON_GAP + ICON_WIDTH), y - 20 + ICON_V_GAP + ICON_TEXT + 15 + j * (ICON_V_GAP + ICON_HEIGHT + ICON_TEXT), x + ICON_GAP + i * (ICON_GAP + ICON_WIDTH) + ICON_WIDTH, y - 20 + ICON_V_GAP + ICON_TEXT + 15 + j * (ICON_V_GAP + ICON_HEIGHT + ICON_TEXT) + ICON_HEIGHT, 0, 0, Math.min(data.getPictures().get(j*10 + i).getImage().getWidth(null), ICON_WIDTH*100) ,Math.min(data.getPictures().get(j*10 + i).getImage().getHeight(null), ICON_HEIGHT*100), null);
+				}
+			}
+		}
+	}
+	
 	public void drawFocus(Graphics g){
-		int x = BORDER_WIDTH + VERTICAL_MAIN_BORDER;
+		int x = BORDER_WIDTH + MAIN_VERTICAL_BORDER;
 		int y = BORDER_WIDTH;
 		
 		g.setColor(DARK_BLUE);
@@ -554,9 +1039,14 @@ public class UI extends JPanel implements ActionListener{
 		g.fillRect(x + ZOOMOUT_OFFSET + 5, y + ZOOMOUT_V_OFFSET + 5, ZOOMOUT_LENGTH - 10, ZOOMOUT_LENGTH - 10);
 		
 		g.setColor(DARK_BLUE);
-		g.fillRect(x + PLUS_OFFSET, y + PLUS_V_OFFSET, PLUS_LENGTH, FOCUS_BORDER - BORDER_WIDTH - 2 * PLUS_V_OFFSET );
+		g.fillRect(x + PLUS_OFFSET, y + ZOOMIN_V_OFFSET, ZOOMOUT_LENGTH, ZOOMOUT_LENGTH );
 		g.setColor(LIGHT_BLUE);
-		g.fillRect(x + PLUS_OFFSET + 5, y + PLUS_V_OFFSET + 5, PLUS_LENGTH - 10, FOCUS_BORDER - BORDER_WIDTH - 2 * PLUS_V_OFFSET - 10);
+		g.fillRect(x + PLUS_OFFSET + 5, y + ZOOMIN_V_OFFSET + 5, ZOOMOUT_LENGTH - 10, ZOOMOUT_LENGTH - 10);
+
+		g.setColor(DARK_BLUE);
+		g.fillRect(x + PLUS_OFFSET, y + ZOOMOUT_V_OFFSET, ZOOMOUT_LENGTH, ZOOMOUT_LENGTH );
+		g.setColor(LIGHT_BLUE);
+		g.fillRect(x + PLUS_OFFSET + 5, y + ZOOMOUT_V_OFFSET + 5, ZOOMOUT_LENGTH - 10, ZOOMOUT_LENGTH - 10);
 		
 		Font temp = new Font(FONT, Font.PLAIN, 50);
 		g.setFont(temp);
@@ -568,19 +1058,21 @@ public class UI extends JPanel implements ActionListener{
 		center = centerString(SELECT_LENGTH, temp, s, g);
 		g.drawString(s, x + SELECT_OFFSET + center, y + SELECT_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - BORDER_WIDTH - 2 * SELECT_V_OFFSET - 12);
 		
-		temp = new Font(FONT, Font.PLAIN, 30);
-		g.setFont(temp);
+		if (pen){
+			g.fillOval(x + PLUS_OFFSET + 14, y + 95, 30, 30);
+		}
+		else{
+			g.fillOval(x + PLUS_OFFSET + 14, y + 95, 30, 30);
+			g.setColor(LIGHT_BLUE);
+			g.fillOval(x + PLUS_OFFSET + 14 + 3, y + 95 + 3, 30 - 6, 30 - 6);
+		}
 		
 		g.setColor(Color.black);
-		s = "UP";
-		center = centerString(PLUS_LENGTH, temp, s, g);
-		g.drawString(s, x + PLUS_OFFSET + center, y + 120);
-		
 		temp = new Font(FONT, Font.PLAIN, 50);
 		g.setFont(temp);
-		s = "+";
+		s = "x";
 		center = centerString(PLUS_LENGTH, temp, s, g);
-		g.drawString(s, x + PLUS_OFFSET + center, y + 70);
+		g.drawString(s, x + PLUS_OFFSET + center, y + 63);
 		
 		s = "+";
 		center = centerString(ZOOMIN_LENGTH, temp, s, g);
@@ -589,7 +1081,7 @@ public class UI extends JPanel implements ActionListener{
 		center = centerString(ZOOMOUT_LENGTH, temp, s, g);
 		g.drawString(s, x + ZOOMOUT_OFFSET + center - 1, y + 123);
 		
-		x = VERTICAL_FOCUS_BORDER + BORDER_WIDTH;
+		x = FOCUS_VERTICAL_BORDER + BORDER_WIDTH;
 		
 		g.setColor(DARK_BLUE);
 		g.fillRect(x + SELECT_OFFSET, y + SELECT_V_OFFSET, SELECT_LENGTH, FOCUS_BORDER - BORDER_WIDTH - 2 * SELECT_V_OFFSET );
@@ -649,7 +1141,12 @@ public class UI extends JPanel implements ActionListener{
 		
 		temp = new Font(FONT, Font.PLAIN, 50);
 		g.setFont(temp);
-		s = "+";
+		if (uploading){
+			s = "x";
+		}
+		else{
+			s = "+";
+		}
 		center = centerString(PLUS_LENGTH, temp, s, g);
 		g.drawString(s, x + PLUS_OFFSET + center, y + 70);
 		
@@ -662,16 +1159,16 @@ public class UI extends JPanel implements ActionListener{
 		
 		
 		
-		x = BORDER_WIDTH + VERTICAL_MAIN_BORDER;
+		x = BORDER_WIDTH + MAIN_VERTICAL_BORDER;
 		y = BORDER_WIDTH + FOCUS_BORDER;
 		if (data.getFocus() != null){ // 
-			data.getFocus().draw(x, y, VERTICAL_FOCUS_BORDER - VERTICAL_MAIN_BORDER - 2 * BORDER_WIDTH, INFO_HORIZONTAL_BORDER - FOCUS_BORDER - 2 * BORDER_WIDTH, g, data.getZoomScale(), data.getPicX(), data.getPicY());
+			data.getFocus().draw(data.getDrawing(), x, y, FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 2 * BORDER_WIDTH, INFO_HORIZONTAL_BORDER - FOCUS_BORDER - 2 * BORDER_WIDTH, g, data.getZoomScale(), data.getPicX(), data.getPicY());
 		}
 		
-		x = BORDER_WIDTH + VERTICAL_FOCUS_BORDER;
+		x = BORDER_WIDTH + FOCUS_VERTICAL_BORDER;
 		
 		if (file != null){ // left
-			file.draw(x, y, VERTICAL_FOCUS_BORDER - VERTICAL_MAIN_BORDER - 2 * BORDER_WIDTH, INFO_HORIZONTAL_BORDER - FOCUS_BORDER - 2 * BORDER_WIDTH, g, zoomScale, picX, picY);
+			file.draw(x, y, FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 2 * BORDER_WIDTH, INFO_HORIZONTAL_BORDER - FOCUS_BORDER - 2 * BORDER_WIDTH, g, zoomScale, picX, picY);
 		}
 		
 	}
@@ -712,7 +1209,7 @@ public class UI extends JPanel implements ActionListener{
 				}
 				g.setColor(Color.black);
 				int j = 0;
-				while ((int)(g.getFontMetrics(f).getStringBounds(s.substring(0, j), g).getWidth()) < (VERTICAL_MAIN_BORDER - 2 * BORDER_WIDTH - 2 * CHAT_OFFSET)){
+				while ((int)(g.getFontMetrics(f).getStringBounds(s.substring(0, j), g).getWidth()) < (MAIN_VERTICAL_BORDER - 2 * BORDER_WIDTH - 2 * CHAT_OFFSET)){
 					j++;
 					if (j > s.length()){
 						break;
@@ -739,7 +1236,7 @@ public class UI extends JPanel implements ActionListener{
 				g.setFont(new Font(FONT, Font.PLAIN, SERVER_SIZE));
 			}
 			heightOfText += scale*lines.size();
-			
+
 			for (int i = lines.size() - 1; i >= 0; i--){
 				if (y - scale < HORIZONTAL_CHAT_BORDER + BORDER_WIDTH + CHAT_V_OFFSET){
 					return;
@@ -763,7 +1260,7 @@ public class UI extends JPanel implements ActionListener{
 	
 	public void drawMainMenu(Graphics g){
 		int y = INFO_MID_BORDER + BORDER_WIDTH;
-		int x = VERTICAL_MAIN_BORDER + BORDER_WIDTH;
+		int x = MAIN_VERTICAL_BORDER + BORDER_WIDTH;
 		g.setColor(DARK_BLUE);
 		g.fillRect(x + QUEST_OFFSET, y + QUEST_V_OFFSET, QUEST_LENGTH, getHeight() - INFO_MID_BORDER - 2 * BORDER_WIDTH - 2 * QUEST_V_OFFSET);
 		g.setColor(LIGHT_BLUE);
@@ -801,7 +1298,7 @@ public class UI extends JPanel implements ActionListener{
 	}
 	
 	public void drawDiceMenu(Graphics g){
-		int x = VERTICAL_MAIN_BORDER + BORDER_WIDTH;
+		int x = MAIN_VERTICAL_BORDER + BORDER_WIDTH;
 		int y = INFO_HORIZONTAL_BORDER + BORDER_WIDTH;
 		g.setColor(DARK_BLUE);
 		g.fillRect(x + ROLL_OFFSET, y + ROLL_V_OFFSET, ROLL_LENGTH, INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - 2 * BORDER_WIDTH - 2 * ROLL_V_OFFSET);
@@ -855,38 +1352,45 @@ public class UI extends JPanel implements ActionListener{
 		g.fillRect(x + HEALTH_BAR_OFFSET, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10, HEALTH_BAR_LENGTH, 40);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10, HEALTH_BAR_LENGTH, 40);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10, HEALTH_BAR_LENGTH, 40);
+		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 - 10, HEALTH_BAR_LENGTH, 40);
 		
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE, 35);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE, 35);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE, 35);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE, 35);
+		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE, 35);
 		
 		g.setColor(LIGHT_BLUE); // light blue
 		g.fillRect(x + HEALTH_BAR_OFFSET + 5, y + HEALTH_BAR_V_OFFSET - 5, HEALTH_BAR_LENGTH - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + 5, y + HEALTH_BAR_V_OFFSET - 5 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + 5 + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 5, HEALTH_BAR_LENGTH - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + 5 + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 5 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH - 10, 30);
+		g.fillRect(x + HEALTH_BAR_OFFSET + 5 + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET - 5 + HEALTH_BAR_V_GAP / 2, HEALTH_BAR_LENGTH - 10, 30);
 		
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + 5, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + 5, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP + 5, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE - 10, 30);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP + 5, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE - 10, 30);
+		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE + HEALTH_BAR_GAP / 2 + 5, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 - 10 + HEALTH_TEXT_V, 2 * HEALTH_TEXT_SPACE - 10, 30);
 		
 		g.setColor(new Color(102,51,0)); // brown
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP, 20, 20);
+		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP / 2, 20, 20);
 		
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_LENGTH, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_LENGTH, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_LENGTH + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET, 20, 20);
 		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_LENGTH + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP, 20, 20);
+		g.fillOval(x + HEALTH_BAR_OFFSET - 10 + HEALTH_BAR_LENGTH + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET - 10 + HEALTH_BAR_CIRCLE_OFFSET + HEALTH_BAR_V_GAP / 2, 20, 20);
 		
 		g.fillRect(x + HEALTH_BAR_OFFSET, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 7, HEALTH_BAR_LENGTH, 14);
 		g.fillRect(x + HEALTH_BAR_OFFSET, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 7 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH, 14);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 7, HEALTH_BAR_LENGTH, 14);
 		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 7 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH, 14);
+		g.fillRect(x + HEALTH_BAR_OFFSET + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 7 + HEALTH_BAR_V_GAP / 2, HEALTH_BAR_LENGTH, 14);
 		
 		if (5*data.getPlayers().get(0).getCurrentHp()/data.getPlayers().get(0).getTotalHp() < 1){
 			g.setColor(new Color(153,0,0)); // red
@@ -916,12 +1420,20 @@ public class UI extends JPanel implements ActionListener{
 			g.setColor(new Color(0,153,0)); // green
 		}
 		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4 + HEALTH_BAR_V_GAP, (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(3).getCurrentHp()/data.getPlayers().get(3).getTotalHp(), 8);
+		if (5*data.getPlayers().get(4).getCurrentHp()/data.getPlayers().get(4).getTotalHp() < 1){
+			g.setColor(new Color(153,0,0)); // red
+		}
+		else{
+			g.setColor(new Color(0,153,0)); // green
+		}
+		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4 + HEALTH_BAR_V_GAP / 2, (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(4).getCurrentHp()/data.getPlayers().get(4).getTotalHp(), 8);
 		
 		g.setColor(new Color(0,0,0)); // black
 		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(0).getCurrentHp()/data.getPlayers().get(0).getTotalHp(), y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4, HEALTH_BAR_LENGTH + 4 - (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(0).getCurrentHp()/data.getPlayers().get(0).getTotalHp(), 8);
 		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(1).getCurrentHp()/data.getPlayers().get(1).getTotalHp(), y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH + 4 - (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(1).getCurrentHp()/data.getPlayers().get(1).getTotalHp(), 8);
 		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(2).getCurrentHp()/data.getPlayers().get(2).getTotalHp() + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4, HEALTH_BAR_LENGTH + 4 - (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(2).getCurrentHp()/data.getPlayers().get(2).getTotalHp(), 8);
 		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(3).getCurrentHp()/data.getPlayers().get(3).getTotalHp() + HEALTH_BAR_GAP, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4 + HEALTH_BAR_V_GAP, HEALTH_BAR_LENGTH + 4 - (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(3).getCurrentHp()/data.getPlayers().get(3).getTotalHp(), 8);
+		g.fillRect(x + HEALTH_BAR_OFFSET  - 2 + (HEALTH_BAR_LENGTH + 4)* data.getPlayers().get(4).getCurrentHp()/data.getPlayers().get(4).getTotalHp() + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_CIRCLE_OFFSET - 4 + HEALTH_BAR_V_GAP / 2, HEALTH_BAR_LENGTH + 4 - (HEALTH_BAR_LENGTH + 4) * data.getPlayers().get(4).getCurrentHp()/data.getPlayers().get(4).getTotalHp(), 8);
 		
 		g.setColor(Color.black);
 		Font temp = new Font(FONT, Font.PLAIN, 28);
@@ -957,6 +1469,13 @@ public class UI extends JPanel implements ActionListener{
 		s = "" + data.getPlayers().get(3).getLevel();
 		center = centerString(LEVEL_LENGTH, temp, s, g);
 		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_GAP + HEALTH_BAR_LENGTH - LEVEL_LENGTH, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP + 18);
+		
+		s = data.getPlayers().get(4).getName();
+		center = centerString(HEALTH_BAR_LENGTH - LEVEL_LENGTH, temp, s, g);
+		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_GAP / 2, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 + 18);
+		s = "" + data.getPlayers().get(4).getLevel();
+		center = centerString(LEVEL_LENGTH, temp, s, g);
+		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH - LEVEL_LENGTH, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 + 18);
 		
 		temp = new Font(FONT, Font.PLAIN, 25);
 		g.setFont(temp);
@@ -1001,21 +1520,92 @@ public class UI extends JPanel implements ActionListener{
 		center = centerString(2* HEALTH_TEXT_SPACE, temp, s, g);
 		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_LENGTH / 2 + HEALTH_BAR_GAP - HEALTH_TEXT_SPACE, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP + 18 + 40);
 		
+		s = "" + data.getPlayers().get(4).getCurrentHp();
+		center = centerString(HEALTH_TEXT_SPACE, temp, s, g);
+		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_LENGTH / 2 + HEALTH_BAR_GAP / 2 - HEALTH_TEXT_SPACE, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 + 18 + 40);
+		s = "" + data.getPlayers().get(4).getTotalHp();
+		center = centerString(HEALTH_TEXT_SPACE, temp, s, g);
+		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_LENGTH / 2 + HEALTH_BAR_GAP / 2 , y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 + 18 + 40);
+		s = "/";
+		center = centerString(2* HEALTH_TEXT_SPACE, temp, s, g);
+		g.drawString(s, x + HEALTH_BAR_OFFSET + center + HEALTH_BAR_LENGTH / 2 + HEALTH_BAR_GAP / 2 - HEALTH_TEXT_SPACE, y + HEALTH_BAR_V_OFFSET + HEALTH_BAR_V_GAP / 2 + 18 + 40);
+		
 		
 	}
 	
 	public void drawHighlighted(int x, int y, Graphics g){
+		int xOff = 0;
+		int yOff = 0;
+		if (rightClick){
+			if (x > rightClickX && x < rightClickX + RIGHTCLICK_WIDTH && y > rightClickY && y < rightClickY + RIGHTCLICK_HEIGHT){
+				x -= rightClickX + BORDER_WIDTH;
+				y -= rightClickY + BORDER_WIDTH;
+				
+				if (x < 0 || y < 0) return;
+				
+				int scale = (RIGHTCLICK_HEIGHT  - 2*BORDER_WIDTH) / 2;
+				
+				int xIndex = x / scale;
+				int yIndex = y / scale;
+				
+				if (xIndex == RIGHTCLICK_WIDTH / scale) return;
+				if (yIndex == RIGHTCLICK_HEIGHT / scale) return;
+				g.setColor(new Color(0,0,0,75));
+				g.fillRect(rightClickX + BORDER_WIDTH + xIndex * scale, rightClickY + BORDER_WIDTH + yIndex * scale, scale, scale);
+				return;
+			}
+		}
+		if (uploading){
+			int tempX = x;
+			tempX = x + MAIN_VERTICAL_BORDER - FOCUS_VERTICAL_BORDER;
+			if (tempX > UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + UPLOAD_BUTTON_BORDER  + 10 && tempX < UPLOAD_BOX_LENGTH - UPLOAD_FIELD_OFFSET + UPLOAD_BOX_OFFSET){
+				if (y > UPLOAD_TEXT_OFFSET && y < UPLOAD_TEXT_OFFSET + UPLOAD_FIELD_HEIGHT){
+					g.setColor(new Color(0,0,0,75));
+					g.fillRect(FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER + UPLOAD_BOX_OFFSET + UPLOAD_FIELD_OFFSET + 10 + UPLOAD_BUTTON_BORDER, UPLOAD_TEXT_OFFSET, UPLOAD_BOX_LENGTH - 2 * UPLOAD_FIELD_OFFSET  - UPLOAD_BUTTON_BORDER - 10, UPLOAD_FIELD_HEIGHT);
+				}
+			}
+		}
+		if (choosing){
+			if (x <  SELECT_BOX_OFFSET){
+				return;
+			}
+			if (x > getWidth() - SELECT_BOX_OFFSET){
+				return;
+			}
+			if (y <  SELECT_BOX_V_OFFSET){
+				return;
+			}
+			if (y >  getHeight() - SELECT_BOX_V_OFFSET){
+				return;
+			}
+			x -= SELECT_BOX_OFFSET + ICON_GAP - 20 + BORDER_WIDTH - 5;
+			y -= SELECT_BOX_V_OFFSET + ICON_V_GAP - 20 + BORDER_WIDTH - 10;
+			xOff += SELECT_BOX_OFFSET + ICON_GAP - 20 + BORDER_WIDTH - 5;
+			yOff += SELECT_BOX_V_OFFSET + ICON_V_GAP - 20 + BORDER_WIDTH - 10;
+			
+			int i = x / (ICON_GAP + ICON_WIDTH);
+			int j = y / (ICON_GAP + ICON_HEIGHT + ICON_TEXT);
+			
+			xOff += i * (ICON_GAP + ICON_WIDTH);
+			yOff += j * (ICON_GAP + ICON_HEIGHT + ICON_TEXT);
+			
+			g.setColor(new Color(0,0,0,75));
+			if (j*10 + i < data.getPictures().size()){
+				g.fillRect(xOff, yOff, (ICON_GAP + ICON_WIDTH), (ICON_GAP + ICON_HEIGHT + ICON_TEXT));
+			}
+			return;
+		}
 		x -= BORDER_WIDTH;
 		y -= BORDER_WIDTH;
 		if (x < 0) return;
 		if (y < 0) return;
 		
-		int xOff = BORDER_WIDTH;
-		int yOff = BORDER_WIDTH;
+		xOff = BORDER_WIDTH;
+		yOff = BORDER_WIDTH;
 		
 		g.setColor(new Color(0,0,0,75));
 		
-		if (x < VERTICAL_MAIN_BORDER - BORDER_WIDTH){ // Left of main
+		if (x < MAIN_VERTICAL_BORDER - BORDER_WIDTH){ // Left of main
 			if (y < HORIZONTAL_CHAT_BORDER - BORDER_WIDTH){ // Focus on DICE
 				if (y < DIE_SIZE){ // 0-2
 					if (x < DIE_SIZE){ // 0
@@ -1133,7 +1723,7 @@ public class UI extends JPanel implements ActionListener{
 				return;
 			}
 		}
-		if (x > VERTICAL_MAIN_BORDER + BORDER_WIDTH){ // Right of main
+		if (x > MAIN_VERTICAL_BORDER + BORDER_WIDTH){ // Right of main
 			if (y > INFO_HORIZONTAL_BORDER + BORDER_WIDTH){ //  bottom info bar.
 				if (x > HEALTH_VERTICAL_BORDER + BORDER_WIDTH){ // health bars
 					xOff += HEALTH_VERTICAL_BORDER;
@@ -1144,6 +1734,24 @@ public class UI extends JPanel implements ActionListener{
 					x -= HEALTH_BAR_OFFSET;
 					yOff += HEALTH_BAR_V_OFFSET;
 					y -= HEALTH_BAR_V_OFFSET;
+					
+					if (y - HEALTH_BAR_V_GAP / 2> -10 && y  - HEALTH_BAR_V_GAP / 2< 30){ // top
+						if (x - HEALTH_BAR_GAP / 2 > 0 && x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH - LEVEL_LENGTH){
+							//g.fillRect(xOff, yOff - 10, HEALTH_BAR_LENGTH - LEVEL_LENGTH, 33);
+						}
+						if (x - HEALTH_BAR_GAP / 2> HEALTH_BAR_LENGTH - LEVEL_LENGTH && x  - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH){
+							g.fillRect(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH - LEVEL_LENGTH, yOff + HEALTH_BAR_V_GAP / 2 - 10, LEVEL_LENGTH, 33);
+						}
+					}
+					if (y - HEALTH_BAR_V_GAP / 2 > 30 && y - HEALTH_BAR_V_GAP / 2 < 65){
+						if (x - HEALTH_BAR_GAP / 2 > HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE && x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH / 2 - 10){
+							g.fillRect(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH / 2 - HEALTH_TEXT_SPACE, yOff + HEALTH_BAR_V_GAP / 2 + 37, HEALTH_TEXT_SPACE - 10, 28);
+						}
+						if (x - HEALTH_BAR_GAP / 2 < HEALTH_BAR_LENGTH / 2 + HEALTH_TEXT_SPACE && x - HEALTH_BAR_GAP / 2 > HEALTH_BAR_LENGTH / 2 + 10){
+							g.fillRect(xOff + HEALTH_BAR_GAP / 2 + HEALTH_BAR_LENGTH / 2 + 10, yOff + HEALTH_BAR_V_GAP / 2 + 37, HEALTH_TEXT_SPACE - 10, 28);
+						}
+					}
+					
 					if (y < (getHeight() - INFO_HORIZONTAL_BORDER) / 2){ // top
 						if (x < (getWidth() - HEALTH_VERTICAL_BORDER) / 2){ // top left
 						}
@@ -1186,9 +1794,9 @@ public class UI extends JPanel implements ActionListener{
 				if (x < HEALTH_VERTICAL_BORDER){ // left menus
 					if ( y > INFO_MID_BORDER){ // NON_Dice
 						
-						x -= VERTICAL_MAIN_BORDER;
+						x -= MAIN_VERTICAL_BORDER;
 						y -= INFO_MID_BORDER;
-						xOff += VERTICAL_MAIN_BORDER;
+						xOff += MAIN_VERTICAL_BORDER;
 						yOff += INFO_MID_BORDER;
 						
 						if (x > QUEST_OFFSET && x < QUEST_OFFSET + QUEST_LENGTH && y > QUEST_V_OFFSET && y < QUEST_V_OFFSET + INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - BORDER_WIDTH - QUEST_V_OFFSET){
@@ -1202,9 +1810,9 @@ public class UI extends JPanel implements ActionListener{
 						}
 					}
 					else{ // Dice
-						x -= VERTICAL_MAIN_BORDER;
+						x -= MAIN_VERTICAL_BORDER;
 						y -= INFO_HORIZONTAL_BORDER;
-						xOff += VERTICAL_MAIN_BORDER;
+						xOff += MAIN_VERTICAL_BORDER;
 						yOff += INFO_HORIZONTAL_BORDER;
 						
 						if (x > ROLL_OFFSET && x < ROLL_OFFSET + ROLL_LENGTH && y > ROLL_V_OFFSET && y < ROLL_V_OFFSET + INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - BORDER_WIDTH - ROLL_V_OFFSET){
@@ -1215,19 +1823,22 @@ public class UI extends JPanel implements ActionListener{
 				}
 			}
 			if (y < FOCUS_BORDER){ //  top "quarter"
-				if (x > VERTICAL_FOCUS_BORDER){
-					x -= VERTICAL_FOCUS_BORDER;
-					xOff += VERTICAL_FOCUS_BORDER;
+				if (x > FOCUS_VERTICAL_BORDER){
+					x -= FOCUS_VERTICAL_BORDER;
+					xOff += FOCUS_VERTICAL_BORDER;
 				}
 				else{
-					x -= VERTICAL_MAIN_BORDER;
-					xOff += VERTICAL_MAIN_BORDER;
+					x -= MAIN_VERTICAL_BORDER;
+					xOff += MAIN_VERTICAL_BORDER;
 				}
 				if (x > SELECT_OFFSET && x < SELECT_OFFSET + SELECT_LENGTH && y > SELECT_V_OFFSET && y < SELECT_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - 2 *SELECT_V_OFFSET){
 					g.fillRect(xOff + SELECT_OFFSET, yOff + SELECT_V_OFFSET, SELECT_LENGTH, FOCUS_BORDER - BORDER_WIDTH - 2 *SELECT_V_OFFSET);
 				}
-				if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > PLUS_V_OFFSET && y < PLUS_V_OFFSET + FOCUS_BORDER - BORDER_WIDTH - BORDER_WIDTH - 2 *PLUS_V_OFFSET){
-					g.fillRect(xOff + PLUS_OFFSET, yOff + PLUS_V_OFFSET, PLUS_LENGTH, FOCUS_BORDER - BORDER_WIDTH - 2 * PLUS_V_OFFSET);
+				if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > ZOOMOUT_V_OFFSET && y < ZOOMOUT_V_OFFSET + ZOOMOUT_LENGTH){
+					g.fillRect(xOff + PLUS_OFFSET, yOff + ZOOMOUT_V_OFFSET, ZOOMOUT_LENGTH, ZOOMOUT_LENGTH);
+				}
+				if (x > PLUS_OFFSET && x < PLUS_OFFSET + PLUS_LENGTH && y > ZOOMIN_V_OFFSET && y < ZOOMIN_V_OFFSET + ZOOMOUT_LENGTH){
+					g.fillRect(xOff + PLUS_OFFSET, yOff + ZOOMIN_V_OFFSET, ZOOMOUT_LENGTH, ZOOMOUT_LENGTH);
 				}
 				if (x > ZOOMIN_OFFSET && x < ZOOMIN_OFFSET + ZOOMIN_LENGTH && y > ZOOMIN_V_OFFSET && y < ZOOMIN_V_OFFSET + 60){
 					g.fillRect(xOff + ZOOMIN_OFFSET, yOff + ZOOMIN_V_OFFSET, ZOOMIN_LENGTH, 60);
@@ -1266,10 +1877,6 @@ public class UI extends JPanel implements ActionListener{
 	//***********************************************************************************************************************************
 	
 	public void drawMainWindowFrame(Graphics g){
-		nameField.setVisible(false);
-		chatField.setVisible(true);
-		uploadField.setVisible(false);
-		nameUploadField.setVisible(false);
 		int green = 128 - 41;
 		int blue = 255 - 82;
 		g.setColor(new Color(0,green,blue));
@@ -1284,20 +1891,20 @@ public class UI extends JPanel implements ActionListener{
 		blue = 80;
 		for (int i = 0; i < 11; i++){
 			g.setColor(new Color(0,green,blue));
-			g.drawRect(i, i, VERTICAL_MAIN_BORDER - 2*i, HORIZONTAL_CHAT_BORDER - 2*i);
-			g.drawRect(i, HORIZONTAL_CHAT_BORDER + i, VERTICAL_MAIN_BORDER - 2*i, getHeight() - HORIZONTAL_CHAT_BORDER - 2*i);
-			g.drawRect(VERTICAL_MAIN_BORDER + i, i, VERTICAL_FOCUS_BORDER - VERTICAL_MAIN_BORDER - 2*i, INFO_HORIZONTAL_BORDER - 2*i);
-			g.drawRect(VERTICAL_FOCUS_BORDER + i, i, getWidth() - VERTICAL_FOCUS_BORDER - 2*i, INFO_HORIZONTAL_BORDER - 2*i);
-			g.drawRect(VERTICAL_MAIN_BORDER + i, INFO_HORIZONTAL_BORDER + i, HEALTH_VERTICAL_BORDER - VERTICAL_MAIN_BORDER - 2*i, INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - 2*i);
-			g.drawRect(VERTICAL_MAIN_BORDER + i, INFO_MID_BORDER + i, HEALTH_VERTICAL_BORDER - VERTICAL_MAIN_BORDER - 2*i, INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - 2*i);
+			g.drawRect(i, i, MAIN_VERTICAL_BORDER - 2*i, HORIZONTAL_CHAT_BORDER - 2*i);
+			g.drawRect(i, HORIZONTAL_CHAT_BORDER + i, MAIN_VERTICAL_BORDER - 2*i, getHeight() - HORIZONTAL_CHAT_BORDER - 2*i);
+			g.drawRect(MAIN_VERTICAL_BORDER + i, i, FOCUS_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 2*i, INFO_HORIZONTAL_BORDER - 2*i);
+			g.drawRect(FOCUS_VERTICAL_BORDER + i, i, getWidth() - FOCUS_VERTICAL_BORDER - 2*i, INFO_HORIZONTAL_BORDER - 2*i);
+			g.drawRect(MAIN_VERTICAL_BORDER + i, INFO_HORIZONTAL_BORDER + i, HEALTH_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 2*i, INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - 2*i);
+			g.drawRect(MAIN_VERTICAL_BORDER + i, INFO_MID_BORDER + i, HEALTH_VERTICAL_BORDER - MAIN_VERTICAL_BORDER - 2*i, INFO_MID_BORDER - INFO_HORIZONTAL_BORDER - 2*i);
 			g.drawRect(HEALTH_VERTICAL_BORDER + i, INFO_HORIZONTAL_BORDER + i, getWidth() - HEALTH_VERTICAL_BORDER - 2*i, getHeight() - INFO_HORIZONTAL_BORDER - 2*i);
 			green += 5;
 			blue += 10;
 		}
 		g.setColor(new Color(50,150,255));
-		g.fillRect(BORDER_WIDTH, BORDER_WIDTH + HORIZONTAL_CHAT_BORDER, VERTICAL_MAIN_BORDER - 2 * BORDER_WIDTH, getHeight() - HORIZONTAL_CHAT_BORDER - 2 * BORDER_WIDTH);
+		g.fillRect(BORDER_WIDTH, BORDER_WIDTH + HORIZONTAL_CHAT_BORDER, MAIN_VERTICAL_BORDER - 2 * BORDER_WIDTH, getHeight() - HORIZONTAL_CHAT_BORDER - 2 * BORDER_WIDTH);
 		g.setColor(new Color(70,170,255));
-		g.fillRect(BORDER_WIDTH + 5, BORDER_WIDTH + HORIZONTAL_CHAT_BORDER + 5, VERTICAL_MAIN_BORDER - 2 * BORDER_WIDTH - 10, getHeight() - HORIZONTAL_CHAT_BORDER - CHAT_HEIGHT - 2 * BORDER_WIDTH - 10);
+		g.fillRect(BORDER_WIDTH + 5, BORDER_WIDTH + HORIZONTAL_CHAT_BORDER + 5, MAIN_VERTICAL_BORDER - 2 * BORDER_WIDTH - 10, getHeight() - HORIZONTAL_CHAT_BORDER - CHAT_HEIGHT - 2 * BORDER_WIDTH - 10);
 		
 	}
 	

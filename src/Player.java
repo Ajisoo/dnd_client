@@ -1,3 +1,5 @@
+package old;
+
 import java.awt.Graphics;
 import java.io.Serializable;
 
@@ -30,6 +32,13 @@ public class Player implements Serializable{
 		totalHp = (int)(Math.random()*20) + 1;
 		currentHp = (int)(Math.random()*(totalHp + 1));
 		level = (int)(Math.random()*99) + 1;
+	}
+	
+	public Player(String name, int level, int currentHp, int totalHp){
+		this.name = name;
+		this.level = level;
+		this.totalHp = totalHp;
+		this.currentHp = currentHp;
 	}
 
 	public void setName(String name) {

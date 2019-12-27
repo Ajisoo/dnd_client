@@ -1,3 +1,5 @@
+package old;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Image;
@@ -41,9 +43,47 @@ public class Picture implements Serializable{
 		}
 	}
 	
+	public void setImage(Image i){
+		this.image = i;
+	}
+	
 	public void draw(int x, int y, int width, int height, Graphics g, int zoomScale, int startx, int starty){
 		double zoom = (int)(Math.pow(2, zoomScale));
-		g.drawImage(image, x, y, x + width, y + height, startx, starty, startx + (int)(width/zoom), starty + (int)(height/zoom), null);
+		g.drawImage(image, x , y, x + width, y + height, startx , starty, startx + (int)(width/zoom), starty + (int)(height/zoom), null);
+	}
+	
+	public void draw(Color[][] drawing, int x, int y, int width, int height, Graphics g, int zoomScale, int startx, int starty){
+		double zoom = (int)(Math.pow(2, zoomScale));
+		g.drawImage(image, x , y, x + width, y + height, startx , starty, startx + (int)(width/zoom), starty + (int)(height/zoom), null);
+		for (int i = 0; i < (int)(width/zoom); i++){
+			for (int j = 0; j < (int)(height/zoom); j++){
+				if (i + startx >= drawing.length || j + starty >= drawing[0].length) continue;
+				if (drawing[i + startx][j + starty] != null){
+					g.setColor(drawing[i + startx][j + starty]);
+					int increaseX = 0;
+					int increaseY = 0;
+					if (width % zoom != 0 && (i + 1) % ((int)(width / zoom) / (int)((width % zoom))) == 0) increaseX = 1;
+					if (height % zoom != 0 && (j + 1) % ((int)(height / zoom) / (int)((height % zoom))) == 0) increaseY = 1;
+					if (width % zoom == 0){
+						if (height % zoom == 0){
+							g.fillRect((int)(x + zoom * i), (int)(y + zoom * j), (int)(zoom + increaseX), (int)(zoom + increaseY));
+						}
+						else{
+							g.fillRect((int)(x + zoom * i), (int)(y + zoom * j + j / ((int)(height / zoom) / (int)((height % zoom)))), (int)(zoom + increaseX), (int)(zoom + increaseY));
+						}
+					}
+					else{
+						if (height % zoom == 0){
+							g.fillRect((int)(x + zoom * i + i / ((int)(width / zoom) / (int)((width % zoom)))), (int)(y + zoom * j), (int)(zoom + increaseX), (int)(zoom + increaseY));
+
+						}
+						else{
+							g.fillRect((int)(x + zoom * i + i / ((int)(width / zoom) / (int)((width % zoom)))), (int)(y + zoom * j + j / ((int)(height / zoom) / (int)((height % zoom)))), (int)(zoom + increaseX), (int)(zoom + increaseY));
+						}
+					}
+				}
+			}
+		}
 	}
 
 	private void writeObject(ObjectOutputStream s) throws IOException {

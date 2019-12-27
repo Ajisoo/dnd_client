@@ -3,13 +3,16 @@ package old;
 import javax.swing.JPanel;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.KeyAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
  
-public class Listener implements MouseListener, MouseMotionListener, KeyListener, MouseWheelListener
+public class GameListener implements MouseListener, MouseMotionListener, KeyListener, MouseWheelListener
 {
     public static int x, y;
     public static boolean clicked;
@@ -17,18 +20,9 @@ public class Listener implements MouseListener, MouseMotionListener, KeyListener
     public static int mouseWheel;
     public static boolean[] mouseButtons= new boolean[3];
     public static boolean[] keyboard= new boolean[250];
-    public static UI ui;
-    public static Client c;
-    public static boolean rightClick;
      
-    public static void setClient(Client client){
-    	c = client;
-    }
-    
-    public Listener(JPanel jpanel, UI ui, Client c)
+    public GameListener(JPanel jpanel)
     {
-    	this.c = c;
-    	this.ui = ui;
         jpanel.setFocusable(true);
         jpanel.addKeyListener(this);
         jpanel.addMouseListener(this);
@@ -55,15 +49,12 @@ public class Listener implements MouseListener, MouseMotionListener, KeyListener
         {
             case MouseEvent.BUTTON1: 
                 mouseButtons[0]= true;
-                ui.setDraw(x, y);
-                rightClick = false;
                 break;
             case MouseEvent.BUTTON2: 
                 mouseButtons[1]= true;
                 break;
             case MouseEvent.BUTTON3: 
                 mouseButtons[2]= true;
-                rightClick = true;
                 break;
         }
         //System.out.println(x + " " + y);
@@ -88,11 +79,6 @@ public class Listener implements MouseListener, MouseMotionListener, KeyListener
     public void mouseClicked(MouseEvent e)
     {
     	//System.out.println(x + " " + y);
-    	if (rightClick){
-    		ui.sendRightClick(c, x, y);
-    	}else{
-    		ui.sendClick(c,x,y);
-    	}
     }
     public void mouseEntered(MouseEvent e)
     {
@@ -109,10 +95,8 @@ public class Listener implements MouseListener, MouseMotionListener, KeyListener
     }
     public void mouseDragged(MouseEvent e)
     {
-    	if (mouseButtons[0])ui.draw(c,e.getX(),e.getY());
         x= e.getX();
         y= e.getY();
-       
     }
     public void mouseWheelMoved(MouseWheelEvent e)
     {

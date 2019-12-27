@@ -1,49 +1,30 @@
-import java.awt.AWTException;
-import java.awt.Cursor;
-import java.awt.Graphics;
-import java.awt.Image;
-import java.awt.Toolkit;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.image.BufferedImage;
+package old;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.Scanner;
-import java.awt.Point;
-import java.awt.Robot;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.Timer;
 
 public class Client{
 	
 	public static void main(String[] args) {
-		String ip = "128.54.251.40";
+		String ip = "128.54.244.106";
 		
 		Scanner scanner = new Scanner(System.in);
 		
 		JFrame frame = new JFrame();
 		frame.setLocation(0, 0);
-		frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+		frame.setSize(1920,1080);
 		frame.setUndecorated(true);
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		UI ui = new UI(1920, 1080, ip);
-		//ui.setData(new Data());
 		frame.setContentPane(ui);
 		frame.setVisible(true);
-//		int i = 0;
-//		while (!ui.validName()){
-//			//System.out.println();
-//		}
-//		System.out.println("hi");
-//		Client c = new Client(ip, 25569, ui.getPlayerName(), ui);
-//		new Listener(ui,ui,c);
 	}
 	
 	//***********************************************************************************************************************
@@ -57,8 +38,11 @@ public class Client{
     Socket socket;
     
     InputThread inputThread;
+    String ip;
+    
     
 	public Client(String ip, int port, String name, UI ui){
+		this.ip = ip;
 		this.ui = ui;
 		this.name = name;
 		Runtime.getRuntime().addShutdownHook(new EndThread());
@@ -90,12 +74,33 @@ public class Client{
 	
 	public void sendString(String s){
 		try{
-			Soutput.reset();
-			Soutput.writeObject(s);
-			System.out.println("String sent : " + System.currentTimeMillis());
+			Soutput.writeUnshared(s);
 			Soutput.flush();
 		}catch (Exception e){
 			System.out.println("Error printing object");
+			try{
+				Sinput.close();
+				Soutput.close();
+				socket.close();
+			}catch(Exception e1){}
+			ui.makeClient(ip);
+			ui = null;
+		}
+	}
+	
+	public void sendPic(Picture p){
+		try{
+			Soutput.writeObject(p);
+			Soutput.flush();
+		}catch (Exception e){
+			System.out.println("Error printing object");
+			try{
+				Sinput.close();
+				Soutput.close();
+				socket.close();
+			}catch(Exception e1){}
+			ui.makeClient(ip);
+			ui = null;
 		}
 	}
 	
@@ -110,11 +115,16 @@ public class Client{
 		}
 		
 		public void run(){  //change to only send/recieve input, change local data.
-			Object o = new Object();
-			while(true){
+			Object o = null;
+			while(ui != null){
 				try {
-					o = Sinput.readObject();
-					System.out.println("data received : " + System.currentTimeMillis());
+					
+					if (ui.getData() == null){
+						ui.finishMakeClient();
+					}
+					if (ui != null){
+						o = Sinput.readObject();
+					}
 					if (o instanceof String){
 						data.update((String)(o));
 						ui.repaint();
@@ -126,7 +136,14 @@ public class Client{
 					}
 				} catch (Exception e) {
 					System.out.println("Problem reading data from server: " + e);
-					System.exit(1);
+					try{
+						Sinput.close();
+						Soutput.close();
+						socket.close();
+					}catch(Exception e1){}
+					ui.makeClient(ip);
+					ui = null;
+					;
 				}
 			}
 		}

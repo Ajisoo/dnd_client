@@ -1,3 +1,5 @@
+package old;
+
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
@@ -16,6 +18,16 @@ public class Die  implements Serializable{
 		maximum = 6;
 		current = (int)(Math.random()*maximum) + 1;
 		visible = Math.random() > 0.5 ? true : false;
+	}
+	
+	public Die(boolean visible, int max, int current){
+		this.visible = visible;
+		this.current = current;
+		this.maximum = max;
+	}
+	
+	public void setCurrent(int current){
+		this.current = current;
 	}
 	
 	public void setMax(int max){
@@ -73,5 +85,9 @@ public class Die  implements Serializable{
 	
 	public int getCurrent(){
 		return current;
+	}
+
+	public int getMax() {
+		return maximum;
 	}
 }
