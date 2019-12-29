@@ -139,7 +139,7 @@ public class UI extends JPanel implements ActionListener{
 	
 	public void makeClient(String ip){
 
-		Client c = new Client(ip, 25569, getPlayerName(), this);
+		Client c = new Client(ip, 7778, getPlayerName(), this);
 		if (!listenerCreated){
 			new Listener(this,this,c);
 			chatField.addActionListener(new ChatListener("CHT ", c));

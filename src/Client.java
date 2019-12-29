@@ -12,14 +12,14 @@ import javax.swing.JFrame;
 public class Client{
 	
 	public static void main(String[] args) {
-		String ip = "128.54.244.106";
+		String ip = "70.95.161.24";
 		
 		Scanner scanner = new Scanner(System.in);
 		
 		JFrame frame = new JFrame();
 		frame.setLocation(0, 0);
 		frame.setSize(1920,1080);
-		frame.setUndecorated(true);
+		frame.setUndecorated(false);
 		frame.setResizable(false);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		UI ui = new UI(1920, 1080, ip);

@@ -1,5 +1,7 @@
 
 
+import com.dosse.upnp.UPnP;
+
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -11,7 +13,7 @@ import javax.imageio.ImageIO;
 public class Server{
 
     public static void main(String[] arg) {
-        new Server(25569);
+        new Server(7778);
     }
     
 	//***********************************************************************************************************************
@@ -24,6 +26,7 @@ public class Server{
     private String location;
     
     Server(int port) {
+    	UPnP.closePortTCP(port);
     	sockets = new Vector<Socket>();
     	in = new Vector<InfoThread>();
 //    	try{
